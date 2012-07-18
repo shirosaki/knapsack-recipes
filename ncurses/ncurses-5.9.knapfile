@@ -1,0 +1,55 @@
+recipe "ncurses", "5.9" do
+  use :autotools
+
+  fetch "http://ftp.gnu.org/pub/gnu/#{name}/#{name}-#{version}.tar.gz",
+    :md5 => "8cb9c412e5f2d96bc6f459aa8c6282a1"
+
+  before :configure do
+    options.configure_args << "--enable-static" \
+                           << "--without-cxx-binding" \
+                           << "--without-ada" \
+                           << "--enable-warnings" \
+                           << "--enable-assertions" \
+                           << "--enable-reentrant" \
+                           << "--with-debug" \
+                           << "--with-normal" \
+                           << "--disable-home-terminfo" \
+                           << "--enable-sp-funcs" \
+                           << "--enable-term-driver" \
+                           << "--enable-interop" \
+                           << "--with-pthread"
+  end
+
+  action :compile do
+    # Build static
+    run "make"
+
+    # Build dll
+    # `lib` command is required. Run "vsvars32.bat".
+    # `pthreadGC2.dll` is required.
+    # Download pthreadGC2.dll and copy the file to a directory in the PATH.
+    # http://sourceforge.net/projects/pthreads4w/
+    run "make dlls"
+  end
+
+  after :install do
+    source_path = work_path
+    bin_path = install_path("bin")
+    lib_path = install_path("lib")
+    include_path = install_path("include")
+
+    fu = FileUtils
+
+    # Move these to work properly when building ext/curses of Ruby.
+    fu.mv File.join(lib_path, "libncursest.a"),
+          File.join(lib_path, "libncurses.a")
+
+    fu.install File.join(source_path, "lib", "libwncursest.dll.a"),
+               File.join(lib_path, "libncurses.dll.a")
+
+    fu.install File.join(source_path, "lib", "wncursest.dll"), bin_path
+
+    fu.mv Dir.glob(File.join(include_path, 'ncursest', '*.h')), include_path
+    fu.rm_rf File.join(include_path, 'ncursest')
+  end
+end
